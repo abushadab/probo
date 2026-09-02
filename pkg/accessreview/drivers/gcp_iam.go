@@ -22,9 +22,7 @@ package drivers
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -32,7 +30,6 @@ import (
 	"go.gearno.de/kit/log"
 	cloudgcp "go.probo.inc/probo/pkg/cloud/gcp"
 	cloudresourcemanager "google.golang.org/api/cloudresourcemanager/v1"
-	"google.golang.org/api/googleapi"
 	iam "google.golang.org/api/iam/v1"
 	"google.golang.org/api/option"
 )
@@ -329,7 +326,7 @@ func attachUserManagedKeys(
 				return err
 			}
 
-			if !isGCPPermissionDenied(err) {
+			if !cloudgcp.As[cloudgcp.ErrPermissionDenied](err) {
 				return fmt.Errorf("cannot list gcp service account keys: %w", err)
 			}
 
@@ -369,13 +366,4 @@ func serviceAccountHasUserManagedKey(ctx context.Context, svc *iam.Service, emai
 	}
 
 	return false, nil
-}
-
-func isGCPPermissionDenied(err error) bool {
-	apiErr, ok := errors.AsType[*googleapi.Error](err)
-	if !ok {
-		return false
-	}
-
-	return apiErr.Code == http.StatusForbidden
 }

@@ -69,7 +69,7 @@ func (d *GCPDriver) ListAccounts(ctx context.Context) ([]AccountRecord, error) {
 			return nil, err
 		}
 
-		if !isGCPPermissionDenied(err) {
+		if !cloudgcp.As[cloudgcp.ErrPermissionDenied](err) {
 			return nil, fmt.Errorf("cannot list service accounts of the gcp project: %w", err)
 		}
 
@@ -89,6 +89,18 @@ func (d *GCPDriver) ListAccounts(ctx context.Context) ([]AccountRecord, error) {
 	records := make([]AccountRecord, 0, len(identities))
 	for _, identity := range identities {
 		records = append(records, gcpIdentityRecord(identity))
+	}
+
+	if err := enrichGCPIdentities(ctx, d.session, records); err != nil {
+		if ctx.Err() != nil {
+			return nil, err
+		}
+
+		d.logger.WarnCtx(
+			ctx,
+			"cannot enrich gcp activity, reporting last login and mfa unknown",
+			cloudgcp.SafeLogFields(err)...,
+		)
 	}
 
 	return records, nil

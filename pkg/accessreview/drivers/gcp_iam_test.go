@@ -21,16 +21,12 @@
 package drivers
 
 import (
-	"context"
-	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.probo.inc/probo/pkg/coredata"
 	cloudresourcemanager "google.golang.org/api/cloudresourcemanager/v1"
-	"google.golang.org/api/googleapi"
 )
 
 func TestParseGCPPrincipal(t *testing.T) {
@@ -258,19 +254,4 @@ func TestProjectIDFromServiceAccountEmail(t *testing.T) {
 	)
 	assert.Empty(t, projectIDFromServiceAccountEmail("alice@example.com"))
 	assert.Empty(t, projectIDFromServiceAccountEmail(""))
-}
-
-func TestIsGCPPermissionDenied(t *testing.T) {
-	t.Parallel()
-
-	assert.True(
-		t,
-		isGCPPermissionDenied(&googleapi.Error{Code: http.StatusForbidden, Message: "denied"}),
-	)
-	assert.True(
-		t,
-		isGCPPermissionDenied(fmt.Errorf("cannot list: %w", &googleapi.Error{Code: http.StatusForbidden})),
-	)
-	assert.False(t, isGCPPermissionDenied(&googleapi.Error{Code: http.StatusNotFound}))
-	assert.False(t, isGCPPermissionDenied(context.Canceled))
 }
