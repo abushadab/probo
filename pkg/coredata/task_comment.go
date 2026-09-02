@@ -40,7 +40,7 @@ type (
 		OrganizationID gid.GID   `db:"organization_id"`
 		TaskID         gid.GID   `db:"task_id"`
 		OwnerID        gid.GID   `db:"owner_profile_id"`
-		Description    string    `db:"description"`
+		Content        string    `db:"content"`
 		CreatedAt      time.Time `db:"created_at"`
 		UpdatedAt      time.Time `db:"updated_at"`
 	}
@@ -62,35 +62,66 @@ func (tc *TaskComment) AuthorizationAttributes(
 	conn pg.Querier,
 	resourceIDs []gid.GID,
 ) (policy.AttributesByID, error) {
-	q := `SELECT id, organization_id FROM task_comments WHERE id = ANY(@resource_ids)`
+	q := `
+SELECT
+    id,
+    organization_id,
+    owner_profile_id
+FROM
+    task_comments
+WHERE
+    id = ANY(@resource_ids)
+`
 
-	args := pgx.StrictNamedArgs{
-		"resource_ids": resourceIDs,
-	}
-
-	rows, err := conn.Query(ctx, q, args)
+	rows, err := conn.Query(ctx, q, pgx.StrictNamedArgs{"resource_ids": resourceIDs})
 	if err != nil {
 		return nil, fmt.Errorf("cannot query authorization attributes: %w", err)
 	}
 
 	defer rows.Close()
 
-	attrsByID := make(policy.AttributesByID)
+	attrsByID := make(policy.AttributesByID, len(resourceIDs))
+	ownerProfileByCommentID := make(map[gid.GID]gid.GID, len(resourceIDs))
+	profileIDSet := make(map[gid.GID]struct{})
 
 	for rows.Next() {
-		var id, organizationID gid.GID
+		var id, organizationID, ownerProfileID gid.GID
 
-		if err := rows.Scan(&id, &organizationID); err != nil {
+		if err := rows.Scan(&id, &organizationID, &ownerProfileID); err != nil {
 			return nil, fmt.Errorf("cannot scan authorization attributes: %w", err)
 		}
 
 		attrsByID[id] = policy.Attributes{
 			"organization_id": organizationID.String(),
 		}
+		ownerProfileByCommentID[id] = ownerProfileID
+		profileIDSet[ownerProfileID] = struct{}{}
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("cannot iterate authorization attributes: %w", err)
+	}
+
+	if len(profileIDSet) == 0 {
+		return attrsByID, nil
+	}
+
+	profileIDs := make([]gid.GID, 0, len(profileIDSet))
+	for profileID := range profileIDSet {
+		profileIDs = append(profileIDs, profileID)
+	}
+
+	var profile MembershipProfile
+
+	profileAttrsByID, err := profile.AuthorizationAttributes(ctx, conn, profileIDs)
+	if err != nil {
+		return nil, fmt.Errorf("cannot load profile authorization attributes: %w", err)
+	}
+
+	for commentID, ownerProfileID := range ownerProfileByCommentID {
+		if ownerIdentityID, ok := profileAttrsByID[ownerProfileID]["identity_id"]; ok {
+			attrsByID[commentID]["owner_id"] = ownerIdentityID
+		}
 	}
 
 	return attrsByID, nil
@@ -108,7 +139,7 @@ SELECT
     organization_id,
     task_id,
     owner_profile_id,
-    description,
+    content,
     created_at,
     updated_at
 FROM
@@ -156,7 +187,7 @@ SELECT
     organization_id,
     task_id,
     owner_profile_id,
-    description,
+    content,
     created_at,
     updated_at
 FROM
@@ -236,7 +267,7 @@ INSERT INTO
         organization_id,
         task_id,
         owner_profile_id,
-        description,
+        content,
         created_at,
         updated_at
     )
@@ -246,7 +277,7 @@ VALUES (
     @organization_id,
     @task_id,
     @owner_profile_id,
-    @description,
+    @content,
     @created_at,
     @updated_at
 )
@@ -258,7 +289,7 @@ VALUES (
 		"organization_id":  tc.OrganizationID,
 		"task_id":          tc.TaskID,
 		"owner_profile_id": tc.OwnerID,
-		"description":      tc.Description,
+		"content":          tc.Content,
 		"created_at":       tc.CreatedAt,
 		"updated_at":       tc.UpdatedAt,
 	}
@@ -281,7 +312,7 @@ UPDATE
     task_comments
 SET
     owner_profile_id = @owner_profile_id,
-    description = @description,
+    content = @content,
     updated_at = @updated_at
 WHERE
     %s
@@ -293,7 +324,7 @@ WHERE
 	args := pgx.StrictNamedArgs{
 		"task_comment_id":  tc.ID,
 		"owner_profile_id": tc.OwnerID,
-		"description":      tc.Description,
+		"content":          tc.Content,
 		"updated_at":       tc.UpdatedAt,
 	}
 	maps.Copy(args, scope.SQLArguments())

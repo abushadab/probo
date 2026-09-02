@@ -22,14 +22,15 @@ package validator
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"go.probo.inc/probo/pkg/prosemirror"
 )
 
 // ProseMirrorDocumentContent requires non-empty string values to be valid
-// ProseMirror/Tiptap JSON with root type "doc". Empty and whitespace-only
-// strings are allowed.
+// ProseMirror/Tiptap JSON with root type "doc" and a renderable node tree.
+// Empty and whitespace-only strings are allowed.
 func ProseMirrorDocumentContent() ValidatorFunc {
 	return func(value any) *ValidationError {
 		actualValue, isNil := dereferenceValue(value)
@@ -85,6 +86,100 @@ func ProseMirrorDocumentMaxTextLength(maxLength int) ValidatorFunc {
 				ErrorCodeTooLong,
 				fmt.Sprintf("text content must be at most %d characters", maxLength),
 			)
+		}
+
+		return nil
+	}
+}
+
+func parseProseMirrorDocument(s string) (prosemirror.Node, bool) {
+	n, err := prosemirror.Parse(s)
+	if err != nil || n.Type != prosemirror.NodeDoc {
+		return prosemirror.Node{}, false
+	}
+
+	return n, true
+}
+
+// ProseMirrorOrSafeText accepts either a ProseMirror/Tiptap JSON document or
+// legacy plain text. JSON documents are bounded by maxJSONBytes and
+// maxTextLength (visible text only). Plain text uses SafeText(maxTextLength).
+func ProseMirrorOrSafeText(maxJSONBytes, maxTextLength int) ValidatorFunc {
+	pmJSON := MaxLen(maxJSONBytes)
+	pmContent := ProseMirrorDocumentContent()
+	pmText := ProseMirrorDocumentMaxTextLength(maxTextLength)
+	plain := SafeText(maxTextLength)
+
+	return func(value any) *ValidationError {
+		actualValue, isNil := dereferenceValue(value)
+		if isNil {
+			return nil
+		}
+
+		s, ok := actualValue.(string)
+		if !ok {
+			return newValidationError(ErrorCodeInvalidFormat, "value must be a string")
+		}
+
+		if strings.TrimSpace(s) == "" {
+			return nil
+		}
+
+		if _, ok := parseProseMirrorDocument(s); ok {
+			if err := pmJSON(s); err != nil {
+				return err
+			}
+
+			if err := pmContent(s); err != nil {
+				return err
+			}
+
+			return pmText(s)
+		}
+
+		return plain(s)
+	}
+}
+
+func nodeHasVisibleText(n prosemirror.Node) bool {
+	if n.Type == prosemirror.NodeHorizontalRule || n.Type == prosemirror.NodeImage {
+		return true
+	}
+
+	if n.Type == prosemirror.NodeText && n.Text != nil && strings.TrimSpace(*n.Text) != "" {
+		return true
+	}
+
+	return slices.ContainsFunc(n.Content, nodeHasVisibleText)
+}
+
+// HasVisibleRichText requires a ProseMirror document with user-visible
+// content. Empty documents (blank paragraphs, lists, or tables) fail the
+// same way as empty or whitespace-only values. Horizontal rules and images
+// count as visible even without text.
+func HasVisibleRichText() ValidatorFunc {
+	return func(value any) *ValidationError {
+		actualValue, isNil := dereferenceValue(value)
+		if isNil {
+			return newValidationError(ErrorCodeRequired, "field is required")
+		}
+
+		s, ok := actualValue.(string)
+		if !ok {
+			return newValidationError(ErrorCodeInvalidFormat, "value must be a string")
+		}
+
+		if strings.TrimSpace(s) == "" {
+			return newValidationError(ErrorCodeRequired, "field is required")
+		}
+
+		n, ok := parseProseMirrorDocument(s)
+		if !ok {
+			return newValidationError(ErrorCodeInvalidFormat, "must be a ProseMirror document")
+		}
+
+		if !nodeHasVisibleText(n) {
+			return newValidationError(ErrorCodeRequired, "field is required")
 		}
 
 		return nil

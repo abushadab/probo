@@ -40,6 +40,9 @@ func TestProseMirrorDocumentContent(t *testing.T) {
 		{"valid doc", validDoc, false},
 		{"plain text", "not json", true},
 		{"non-doc root", `{"type":"paragraph","content":[]}`, true},
+		{"unknown node", `{"type":"doc","content":[{"type":"unknownWidget"}]}`, true},
+		{"unknown mark", `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","marks":[{"type":"glow"}],"text":"hi"}]}]}`, true},
+		{"invalid heading level", `{"type":"doc","content":[{"type":"heading","attrs":{"level":9},"content":[{"type":"text","text":"hi"}]}]}`, true},
 		{"nil value", nil, false},
 		{"nil *string", (*string)(nil), false},
 		{"non-string", 1, true},
@@ -98,6 +101,100 @@ func TestProseMirrorDocumentMaxTextLength(t *testing.T) {
 			err := fn(tt.value)
 			if (err != nil) != tt.wantError {
 				t.Errorf("ProseMirrorDocumentMaxTextLength() error = %v, wantError %v", err, tt.wantError)
+			}
+
+			if err != nil && tt.wantCode != "" && err.Code != tt.wantCode {
+				t.Errorf("expected code %s, got %s", tt.wantCode, err.Code)
+			}
+		})
+	}
+}
+
+func TestProseMirrorOrSafeText(t *testing.T) {
+	t.Parallel()
+
+	const (
+		maxJSON = 200
+		maxText = 10
+	)
+
+	validDoc := proseMirrorDoc("hello")
+	tooLongText := proseMirrorDoc(strings.Repeat("a", maxText+1))
+	tooLongJSON := `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"` +
+		strings.Repeat("x", maxJSON) + `"}]}]}`
+
+	tests := []struct {
+		name      string
+		value     any
+		wantError bool
+		wantCode  ErrorCode
+	}{
+		{"nil value", nil, false, ""},
+		{"empty string", "", false, ""},
+		{"plain text", "hello", false, ""},
+		{"plain text too long", strings.Repeat("a", maxText+1), true, ErrorCodeTooLong},
+		{"plain text html", "<b>hi</b>", true, ErrorCodeInvalidFormat},
+		{"valid doc", validDoc, false, ""},
+		{"doc text too long", tooLongText, true, ErrorCodeTooLong},
+		{"doc json too long", tooLongJSON, true, ErrorCodeTooLong},
+		{"non-string", 1, true, ErrorCodeInvalidFormat},
+	}
+
+	fn := ProseMirrorOrSafeText(maxJSON, maxText)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := fn(tt.value)
+			if (err != nil) != tt.wantError {
+				t.Errorf("ProseMirrorOrSafeText() error = %v, wantError %v", err, tt.wantError)
+			}
+
+			if err != nil && tt.wantCode != "" && err.Code != tt.wantCode {
+				t.Errorf("expected code %s, got %s", tt.wantCode, err.Code)
+			}
+		})
+	}
+}
+
+func TestHasVisibleRichText(t *testing.T) {
+	t.Parallel()
+
+	emptyHR := `{"type":"doc","content":[{"type":"horizontalRule"}]}`
+	imageOnly := `{"type":"doc","content":[{"type":"image","attrs":{"src":"https://example.com/img.png"}}]}`
+	emptyList := `{"type":"doc","content":[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph"}]}]}]}`
+	emptyTable := `{"type":"doc","content":[{"type":"table","content":[{"type":"tableRow","content":[{"type":"tableCell","content":[{"type":"paragraph"}]}]}]}]}`
+
+	tests := []struct {
+		name      string
+		value     any
+		wantError bool
+		wantCode  ErrorCode
+	}{
+		{"nil value", nil, true, ErrorCodeRequired},
+		{"empty string", "", true, ErrorCodeRequired},
+		{"whitespace only", "   \n", true, ErrorCodeRequired},
+		{"doc with text", proseMirrorDoc("hello"), false, ""},
+		{"empty paragraph doc", `{"type":"doc","content":[{"type":"paragraph"}]}`, true, ErrorCodeRequired},
+		{"text on non-text node", `{"type":"doc","content":[{"type":"paragraph","text":"hello"}]}`, true, ErrorCodeRequired},
+		{"horizontal rule only", emptyHR, false, ""},
+		{"image only", imageOnly, false, ""},
+		{"empty list", emptyList, true, ErrorCodeRequired},
+		{"empty table", emptyTable, true, ErrorCodeRequired},
+		{"plain text", "hello", true, ErrorCodeInvalidFormat},
+		{"non-string", 1, true, ErrorCodeInvalidFormat},
+	}
+
+	fn := HasVisibleRichText()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := fn(tt.value)
+			if (err != nil) != tt.wantError {
+				t.Errorf("HasVisibleRichText() error = %v, wantError %v", err, tt.wantError)
 			}
 
 			if err != nil && tt.wantCode != "" && err.Code != tt.wantCode {

@@ -4,7 +4,6 @@
     "empty": "—",
     "none": "Aucun",
     "noDescription": "Aucune description",
-    "descriptionPlaceholder": "Ajouter une description",
     "unassigned": "Non assigné",
     "fields": {
       "name": "Nom",
@@ -58,12 +57,12 @@
     },
     "errors": {
       "delete": "Échec de la suppression de la tâche",
-      "update": "Échec de la mise à jour de la tâche"
+      "update": "Échec de la mise à jour de la tâche",
+      "content": "Impossible d'afficher cette description"
     },
     "comments": {
       "title": "Commentaires",
       "empty": "Aucun commentaire pour le moment",
-      "placeholder": "Ajouter un commentaire",
       "fields": {
         "description": "Commentaire"
       },
@@ -79,12 +78,16 @@
       },
       "messages": {
         "created": "Commentaire ajouté avec succès.",
+        "updated": "Commentaire mis à jour avec succès.",
         "deleted": "Commentaire supprimé avec succès."
       },
       "errors": {
         "create": "Échec de l'ajout du commentaire",
+        "update": "Échec de la mise à jour du commentaire",
         "delete": "Échec de la suppression du commentaire",
-        "descriptionRequired": "Saisissez un commentaire"
+        "content": "Impossible d'afficher ce commentaire",
+        "contentRequired": "Saisissez un commentaire",
+        "contentTooLong": "Le commentaire ne doit pas dépasser {{max}} caractères"
       }
     }
   },

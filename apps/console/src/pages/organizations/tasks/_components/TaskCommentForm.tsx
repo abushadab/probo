@@ -19,34 +19,43 @@
 // SOFTWARE.
 
 import { Form } from "@base-ui/react/form";
+import { isRichEditorContentEmpty, RichEditor, richEditorContentTextLength } from "@probo/ui";
 import { Button } from "@probo/ui/src/v2/Button/Button";
 import { Field } from "@probo/ui/src/v2/form/Field";
-import { Textarea } from "@probo/ui/src/v2/form/Textarea";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { taskCommentMaxLength } from "../_lib/taskCommentMaxLength";
 import { useCreateTaskComment } from "../_lib/useCreateTaskComment";
 import { taskCommentForm } from "../variants";
-
-const taskCommentMaxLength = 5000;
 
 export function TaskCommentForm() {
   const { t } = useTranslation("organizations/tasks");
   const [createTaskComment, isCreating] = useCreateTaskComment();
-  const [description, setDescription] = useState("");
+  const [content, setContent] = useState("");
+  const [editorKey, setEditorKey] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { root, actions } = taskCommentForm();
+  const { root, editor, actions } = taskCommentForm();
 
   function handleSubmit() {
-    const next = description.trim();
-    if (!next) {
-      setErrors({ description: t("detailsPage.comments.errors.descriptionRequired") });
+    if (isRichEditorContentEmpty(content)) {
+      setErrors({ content: t("detailsPage.comments.errors.contentRequired") });
       return;
     }
 
-    void createTaskComment(next).then(
+    if (richEditorContentTextLength(content) > taskCommentMaxLength) {
+      setErrors({
+        content: t("detailsPage.comments.errors.contentTooLong", {
+          max: taskCommentMaxLength,
+        }),
+      });
+      return;
+    }
+
+    void createTaskComment(content).then(
       () => {
-        setDescription("");
+        setContent("");
+        setEditorKey(key => key + 1);
         setErrors({});
       },
       () => {
@@ -59,18 +68,26 @@ export function TaskCommentForm() {
     <Form className={root()} errors={errors} onFormSubmit={handleSubmit}>
       <Field
         label={t("detailsPage.comments.fields.description")}
-        error={errors.description}
+        error={errors.content}
       >
-        <Textarea
-          name="description"
-          rows={3}
-          required
-          maxLength={taskCommentMaxLength}
-          value={description}
+        <RichEditor
+          key={editorKey}
+          className={editor()}
+          variant="compact"
+          content={content}
           disabled={isCreating}
-          placeholder={t("detailsPage.comments.placeholder")}
-          onChange={(event) => {
-            setDescription(event.currentTarget.value);
+          aria-label={t("detailsPage.comments.fields.description")}
+          onChangeContent={(next) => {
+            setContent(next);
+            if (richEditorContentTextLength(next) > taskCommentMaxLength) {
+              setErrors({
+                content: t("detailsPage.comments.errors.contentTooLong", {
+                  max: taskCommentMaxLength,
+                }),
+              });
+              return;
+            }
+
             setErrors({});
           }}
         />

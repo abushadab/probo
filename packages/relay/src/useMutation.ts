@@ -44,8 +44,9 @@ export type MutationNotifier = {
 };
 
 export type MutationFeedback = {
-  // Message shown on success. Omit for no success notification.
-  successMessage?: string;
+  // Message shown on success. Omit for the hook default. `false` skips the
+  // success notification (field autosave).
+  successMessage?: string | false;
   // Error notification behavior: `true` (default) notifies with the notifier's
   // default title, a string overrides that title, and `false` disables the
   // automatic notification so the caller handles the rejected promise itself.
@@ -138,7 +139,7 @@ export function createUseMutation(useNotifier: () => MutationNotifier) {
                 reject(error);
                 return;
               }
-              if (successMessage) {
+              if (typeof successMessage === "string" && successMessage) {
                 notifier.notifySuccess(successMessage);
               }
               resolve(response);

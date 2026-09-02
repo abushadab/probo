@@ -4,16 +4,16 @@
 
 import { Extension } from "@tiptap/core";
 import { type EditorState, Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 const placeholderKey = new PluginKey("placeholder");
 
+const defaultPlaceholder = "Write or type / for commands\u2026";
+
 function computeDecorations(
   state: EditorState,
-  editable: boolean,
+  placeholder: string,
 ): DecorationSet {
-  if (!editable) return DecorationSet.empty;
-
   const { selection } = state;
   if (!selection.empty) return DecorationSet.empty;
 
@@ -39,7 +39,7 @@ function computeDecorations(
   return DecorationSet.create(state.doc, [
     Decoration.node(pos, pos + node.nodeSize, {
       "class": "is-empty-focused",
-      "data-placeholder": "Write or type / for commands\u2026",
+      "data-placeholder": placeholder,
     }),
   ]);
 }
@@ -47,31 +47,22 @@ function computeDecorations(
 export const PlaceholderExtension = Extension.create({
   name: "placeholder",
 
+  addOptions() {
+    return {
+      placeholder: defaultPlaceholder,
+    };
+  },
+
   addProseMirrorPlugins() {
-    const { editor } = this;
+    const placeholder = this.options.placeholder;
 
     return [
       new Plugin({
         key: placeholderKey,
 
-        view() {
-          let lastEditable = editor.isEditable;
-          return {
-            update(view: EditorView) {
-              const editable = editor.isEditable;
-              if (editable !== lastEditable) {
-                lastEditable = editable;
-                view.dispatch(
-                  view.state.tr.setMeta(placeholderKey, true),
-                );
-              }
-            },
-          };
-        },
-
         state: {
           init(_config, state) {
-            return computeDecorations(state, editor.isEditable);
+            return computeDecorations(state, placeholder);
           },
           apply(tr, value, _oldState, newState) {
             if (
@@ -81,7 +72,7 @@ export const PlaceholderExtension = Extension.create({
             ) {
               return value;
             }
-            return computeDecorations(newState, editor.isEditable);
+            return computeDecorations(newState, placeholder);
           },
         },
 

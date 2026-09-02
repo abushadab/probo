@@ -28,6 +28,56 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateDocumentContentJSON_Schema(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		in      string
+		wantErr bool
+	}{
+		{name: "empty", in: "", wantErr: false},
+		{name: "whitespace only", in: "   \n", wantErr: false},
+		{
+			name:    "valid paragraph",
+			in:      `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"hi"}]}]}`,
+			wantErr: false,
+		},
+		{name: "plain text", in: "not json", wantErr: true},
+		{name: "non-doc root", in: `{"type":"paragraph","content":[]}`, wantErr: true},
+		{name: "unknown node", in: `{"type":"doc","content":[{"type":"unknownWidget"}]}`, wantErr: true},
+		{
+			name:    "unknown mark",
+			in:      `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","marks":[{"type":"glow"}],"text":"hi"}]}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid heading level",
+			in:      `{"type":"doc","content":[{"type":"heading","attrs":{"level":9},"content":[{"type":"text","text":"hi"}]}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "list item at root",
+			in:      `{"type":"doc","content":[{"type":"listItem","content":[{"type":"paragraph"}]}]}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := ValidateDocumentContentJSON(tt.in)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestSanitizeDocumentJSON_EmptyUnchanged(t *testing.T) {
 	t.Parallel()
 

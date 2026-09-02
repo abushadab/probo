@@ -39,12 +39,34 @@ func proseMirrorJSONToMarkdown(pmJSON string) (string, error) {
 		return "", fmt.Errorf("cannot parse prosemirror json: %w", err)
 	}
 
+	if node.Type != prosemirror.NodeDoc {
+		return "", fmt.Errorf("cannot parse prosemirror json: document content root must be type %q", prosemirror.NodeDoc)
+	}
+
 	md, err := prosemirror.RenderMarkdown(node)
 	if err != nil {
 		return "", fmt.Errorf("cannot render markdown: %w", err)
 	}
 
 	return md, nil
+}
+
+// richTextToMarkdown converts stored ProseMirror JSON to markdown.
+func richTextToMarkdown(s string) (string, error) {
+	return proseMirrorJSONToMarkdown(s)
+}
+
+func optionalRichTextToMarkdown(s *string) (*string, error) {
+	if s == nil {
+		return nil, nil
+	}
+
+	md, err := richTextToMarkdown(*s)
+	if err != nil {
+		return nil, err
+	}
+
+	return &md, nil
 }
 
 func NewDocument(d *coredata.Document) *Document {

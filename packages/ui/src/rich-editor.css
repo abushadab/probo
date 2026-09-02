@@ -10,6 +10,10 @@
         code { @apply py-0.5 px-1; }
     }
 
+    [data-variant="compact"] & > p:first-child {
+        @apply mt-0;
+    }
+
     strong { @apply font-semibold; }
 
     h1 { @apply text-4xl font-semibold mt-4; }
