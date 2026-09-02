@@ -28,12 +28,14 @@ import {
   UserDropdownItem,
   useToast,
 } from "@probo/ui";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFragment, useMutation } from "react-relay";
 import { graphql } from "relay-runtime";
 
 import type { ViewerDropdownFragment$key } from "#/__generated__/iam/ViewerDropdownFragment.graphql";
 import type { ViewerDropdownSignOutMutation } from "#/__generated__/iam/ViewerDropdownSignOutMutation.graphql";
+import { IdentityAvatarDialog } from "#/pages/iam/_components/IdentityAvatarDialog";
 
 export const fragment = graphql`
   fragment ViewerDropdownFragment on Identity {
@@ -41,6 +43,10 @@ export const fragment = graphql`
     canListOAuth2AccessTokens: permission(action: "iam:oauth2-access-token:list")
     email
     fullName
+    avatar {
+      downloadUrl
+    }
+    ...IdentityAvatarDialog_identity
   }
 `;
 
@@ -58,9 +64,10 @@ export function ViewerDropdown(props: { fKey: ViewerDropdownFragment$key }) {
   const { t } = useTranslation();
   const { toast } = useToast();
 
-  const { canListAPIKeys, canListOAuth2AccessTokens, email, fullName }
-    = useFragment<ViewerDropdownFragment$key>(fragment, fKey);
+  const identity = useFragment<ViewerDropdownFragment$key>(fragment, fKey);
+  const { canListAPIKeys, canListOAuth2AccessTokens, email, fullName, avatar } = identity;
   const [signOut] = useMutation<ViewerDropdownSignOutMutation>(signOutMutation);
+  const [avatarOpen, setAvatarOpen] = useState(false);
 
   const handleLogout: React.MouseEventHandler<HTMLAnchorElement> = (e) => {
     e.preventDefault();
@@ -89,34 +96,46 @@ export function ViewerDropdown(props: { fKey: ViewerDropdownFragment$key }) {
   };
 
   return (
-    <UserDropdown fullName={fullName} email={email}>
-      {canListAPIKeys && (
+    <>
+      <UserDropdown
+        fullName={fullName}
+        email={email}
+        src={avatar?.downloadUrl}
+        onAvatarClick={() => setAvatarOpen(true)}
+      >
+        {canListAPIKeys && (
+          <UserDropdownItem
+            to="/me/api-keys"
+            icon={IconKey}
+            label={t("apiKeys.title")}
+          />
+        )}
+        {canListOAuth2AccessTokens && (
+          <UserDropdownItem
+            to="/me/oauth-tokens"
+            icon={IconKey}
+            label={t("viewerDropdown.actions.oauthTokens")}
+          />
+        )}
         <UserDropdownItem
-          to="/me/api-keys"
-          icon={IconKey}
-          label={t("apiKeys.title")}
+          to="mailto:support@probo.com"
+          icon={IconCircleQuestionmark}
+          label={t("viewerDropdown.actions.help")}
         />
-      )}
-      {canListOAuth2AccessTokens && (
+        <DropdownSeparator />
         <UserDropdownItem
-          to="/me/oauth-tokens"
-          icon={IconKey}
-          label={t("viewerDropdown.actions.oauthTokens")}
+          variant="danger"
+          to="/logout"
+          icon={IconArrowBoxLeft}
+          label={t("viewerDropdown.actions.logout")}
+          onClick={handleLogout}
         />
-      )}
-      <UserDropdownItem
-        to="mailto:support@probo.com"
-        icon={IconCircleQuestionmark}
-        label={t("viewerDropdown.actions.help")}
+      </UserDropdown>
+      <IdentityAvatarDialog
+        identityKey={identity}
+        open={avatarOpen}
+        onOpenChange={setAvatarOpen}
       />
-      <DropdownSeparator />
-      <UserDropdownItem
-        variant="danger"
-        to="/logout"
-        icon={IconArrowBoxLeft}
-        label={t("viewerDropdown.actions.logout")}
-        onClick={handleLogout}
-      />
-    </UserDropdown>
+    </>
   );
 }
