@@ -1,0 +1,71 @@
+name: "Downstream CI"
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: "downstream-ci-${{ github.ref }}"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: "frontend"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup
+        with:
+          go: "false"
+      - run: make relay NPROC=2
+      - run: npm run check
+      - run: npm run lint
+      - run: npm run build
+
+  go:
+    name: "go"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup
+        with:
+          node: "false"
+      - name: Create embedded asset placeholders
+        run: |
+          mkdir -p apps/console/dist apps/compliance-portal/dist apps/employee-portal/dist packages/emails/dist
+          echo ci > apps/console/dist/index.html
+          echo ci > apps/compliance-portal/dist/index.html
+          echo ci > apps/employee-portal/dist/index.html
+          echo ci > packages/emails/dist/placeholder
+      - name: Generate code
+        run: |
+          go generate ./pkg/server/api/connect/v1
+          go generate ./pkg/server/api/mcp/v1
+          go generate ./pkg/server/api/console/v1
+          go generate ./pkg/server/api/complianceportal/v1
+      - name: Build server and clients
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          go build -gcflags="-e" -o bin/probod ./cmd/probod/main.go
+          go build -gcflags="-e" -o bin/probod-bootstrap ./cmd/probod-bootstrap/main.go
+          go build -gcflags="-e" -o bin/prb ./cmd/prb/main.go
+          go build -gcflags="-e" -o bin/proboctl ./cmd/proboctl/main.go
+
+  policy:
+    name: "downstream-policy"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+      - name: Check downstream policy files
+        run: test -s DOWNSTREAM.md && test -s docs/downstream-capability-matrix.md
