@@ -78,4 +78,4 @@ jobs:
           fi
       - name: Dispatch downstream CI
         if: steps.merge.outputs.changed == 'true'
-        run: gh workflow run downstream-ci.yml --ref "$SYNC_BRANCH"
+        run: gh workflow run downstream-ci.yml --repo "$GITHUB_REPOSITORY" --ref "$SYNC_BRANCH"
