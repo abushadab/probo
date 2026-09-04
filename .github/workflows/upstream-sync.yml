@@ -67,13 +67,14 @@ jobs:
       - name: Open or update pull request
         if: steps.merge.outputs.changed == 'true'
         run: |
-          number="$(gh pr list --state open --base main --head "$SYNC_BRANCH" --json number --jq '.[0].number')"
+          number="$(gh api "repos/${GITHUB_REPOSITORY}/pulls?state=open&base=main&head=${GITHUB_REPOSITORY_OWNER}%3A${SYNC_BRANCH}" --jq '.[0].number')"
           if [ -z "$number" ]; then
-            gh pr create \
-              --base main \
-              --head "$SYNC_BRANCH" \
-              --title "chore: sync upstream Probo" \
-              --body "Automated merge of the latest getprobo/probo main. Review upstream release notes, migration changes, and downstream CI before merging."
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/pulls" \
+              -f base=main \
+              -f head="$SYNC_BRANCH" \
+              -f title="chore: sync upstream Probo" \
+              -f body="Automated merge of the latest getprobo/probo main. Review upstream release notes, migration changes, and downstream CI before merging." \
+              --silent
           fi
       - name: Dispatch downstream CI
         if: steps.merge.outputs.changed == 'true'
