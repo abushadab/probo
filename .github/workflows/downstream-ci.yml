@@ -28,7 +28,12 @@ jobs:
       - run: make relay NPROC=2
       - run: npm run check
       - run: npm run lint
-      - run: npm run build
+      # The n8n package currently inherits the repository's TypeScript 6 override,
+      # while @n8n/node-cli still emits moduleResolution=node10 (removed in TS 6).
+      # Keep all product applications required and remove this filter when upstream
+      # aligns that package's compiler configuration.
+      - name: Build product applications
+        run: npm run build -- --filter="!@probo/n8n-nodes-probo"
 
   go:
     name: "go"
