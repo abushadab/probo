@@ -14,7 +14,7 @@ directive @goEnum(value: String) on ENUM_VALUE
 scalar CursorKey
 scalar Datetime
 scalar Upload
-scalar Duration
+scalar TimeSpan
 scalar BigInt
 scalar EmailAddr
 
@@ -50,6 +50,8 @@ type Query {
     commonThirdParties(name: String!): [CommonThirdParty!]!
     accessReviewDrivers: [ConnectorProviderInfo!]! @goField(forceResolver: true)
     awsConnectorSetup(organizationId: ID!): AWSConnectorSetup!
+        @goField(forceResolver: true)
+    gcpConnectorSetup(organizationId: ID!): GCPConnectorSetup!
         @goField(forceResolver: true)
     crispVerificationCode(organizationId: ID!, websiteId: String!): String!
         @goField(forceResolver: true)

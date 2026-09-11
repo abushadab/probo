@@ -23,6 +23,7 @@ package provider
 import (
 	"context"
 	"net/http"
+	"regexp"
 
 	"go.gearno.de/kit/log"
 
@@ -152,6 +153,16 @@ type Registration struct {
 	// ProbeURL and BuildProbeURL when set. It receives the registration's
 	// resolved Endpoints for the same reason BuildProbeURL does.
 	Probe func(context.Context, *http.Client, *coredata.Connector, Endpoints) error
+	// ClassifyRejection refines a 403 by reading the provider's own
+	// explanation of it: it reports whether the provider accepted the
+	// credential and refused the operation (true, the customer fixes the plan
+	// or the permissions) or refused the credential itself (false, the
+	// customer fixes the key). Nil for a provider that does not explain
+	// itself, which leaves 403 meaning refused-operation.
+	//
+	// It receives the response body and must map it onto that one bit:
+	// provider text is never carried any further than this closure.
+	ClassifyRejection func(body []byte) bool
 
 	// Factory closures — wired by Stages 2 and 3.
 	// NewDriver and NewNameResolver receive the registration's resolved
@@ -237,6 +248,57 @@ type APIKeyConfig struct {
 	// Orthogonal to Auth, which still selects how the injected key goes on the
 	// wire.
 	Managed *ManagedAPIKey
+
+	// KeyFormat is the shape a customer-pasted key must have. Nil for a
+	// provider whose keys have no shape worth asserting — an opaque token is
+	// the common case, and a guess at its format would reject valid keys the
+	// day the provider mints a new one.
+	KeyFormat *KeyFormat
+}
+
+// KeyFormat is the shape the customer has to paste: the prefix that marks the
+// one credential this connector can use, and the separator where the credential
+// joins two halves. So it catches a credential pasted wrong, and one of the
+// provider's other credential classes that could never have worked here. It
+// cannot catch a key of the right class that is dead, revoked or too narrowly
+// scoped, which is what the probe is for.
+//
+// It is data rather than a closure because both sides of the API evaluate it.
+type KeyFormat struct {
+	// Pattern asserts the prefix and the separator, and nothing else. It must
+	// not constrain the length or the alphabet of the random part: a provider
+	// that changes those would otherwise lock out customers holding valid
+	// keys, with no way around it.
+	//
+	// The console compiles this same source as a JavaScript RegExp. The two
+	// dialects only overlap, so keep to what both read the same way — literals,
+	// character classes, quantifiers, anchors, alternation and (?:. A pattern
+	// the browser will not compile costs the client-side check and nothing
+	// more: the server applies the rule either way.
+	//
+	// . is not one of them, since the two exclude different line terminators
+	// from it. Write [\s\S] where any character will do.
+	Pattern *regexp.Regexp
+
+	// Example is the shape shown to the customer, as the field's placeholder
+	// and in the rejection message. Register enforces that it matches Pattern,
+	// so the two cannot drift into telling the customer to paste something the
+	// check refuses. It stands in for the pattern, which is unreadable to the
+	// people who need to act on it, so it carries no real key material.
+	Example string
+}
+
+// apiKeyPrefix is the KeyFormat of a provider that mints every key with one
+// fixed prefix. It quotes and anchors the prefix and asks for one character
+// after it, so a registration cannot reach past the prefix into the random
+// part and a key copied no further than the prefix is not well formed. Stop
+// the prefix short of any version segment the provider can bump; Example still
+// shows the whole of today's shape.
+func apiKeyPrefix(prefix, example string) *KeyFormat {
+	return &KeyFormat{
+		Pattern: regexp.MustCompile("^" + regexp.QuoteMeta(prefix) + "[\\s\\S]"),
+		Example: example,
+	}
 }
 
 // ManagedAPIKey is the Probo-held variant of the API-key path. Nesting it under

@@ -261,6 +261,7 @@
   },
   "documentList": {
     "filters": {
+      "searchPlaceholder": "Rechercher des documents par titre...",
       "allSources": "Toutes les sources",
       "allTypes": "Tous les types",
       "allClassifications": "Toutes les classifications"
@@ -573,7 +574,9 @@
     "errors": {
       "title": "Erreur",
       "delete": "Échec de la suppression du constat",
-      "update": "Échec de la mise à jour du constat"
+      "update": "Échec de la mise à jour du constat",
+      "linkAudit": "Échec de l’association de l’audit",
+      "unlinkAudit": "Échec de la dissociation de l’audit"
     },
     "deleteConfirmation": "Cette action supprimera définitivement le constat {{referenceId}}. Cette action est irréversible.",
     "fields": {
@@ -600,6 +603,14 @@
       "delete": "Supprimer",
       "updating": "Mise à jour...",
       "update": "Mettre à jour"
+    },
+    "audits": {
+      "title": "Audits associés",
+      "referenceId": "Référence de l’audit",
+      "link": "Associer un audit",
+      "empty": "Aucun audit associé",
+      "loadMore": "Charger plus d’audits",
+      "loading": "Chargement..."
     }
   },
   "findingsPage": {
@@ -820,8 +831,14 @@
   "linkedAuditsDialog": {
     "title": "Associer des audits",
     "searchPlaceholder": "Rechercher des audits...",
+    "referenceIdLabel": "Référence de l’audit",
+    "referenceIdDescription": "Saisissez la référence utilisée pour ce constat dans le rapport d’audit.",
+    "referenceIdPlaceholder": "Saisir la référence du rapport",
+    "empty": "Aucun audit ne correspond à votre recherche.",
     "actions": {
+      "back": "Retour",
       "close": "Fermer",
+      "confirmLink": "Associer l’audit",
       "link": "Associer",
       "unlink": "Dissocier"
     }
@@ -2017,6 +2034,26 @@
       "logout": "Déconnexion"
     }
   },
+  "editAvatar": {
+    "title": "Photo de profil",
+    "description": "Ajoutez une photo publique.",
+    "messages": {
+      "updated": "Photo de profil mise à jour.",
+      "removed": "Photo de profil supprimée."
+    },
+    "errors": {
+      "update": "Échec de la mise à jour de la photo de profil",
+      "remove": "Échec de la suppression de la photo de profil",
+      "invalidFile": "Utilisez un JPEG ou un PNG de moins de 5 Mo."
+    },
+    "actions": {
+      "upload": "Téléverser une photo",
+      "replace": "Remplacer la photo",
+      "remove": "Supprimer la photo",
+      "close": "Fermer",
+      "change": "Changer la photo de profil"
+    }
+  },
   "newOAuthTokenPage": {
     "pageTitle": "Nouveau jeton OAuth",
     "breadcrumb": "Nouveau jeton",
@@ -2770,19 +2807,7 @@
     }
   },
   "accessReviewSourceRow": {
-    "sources": {
-      "csv": "CSV",
-      "googleWorkspace": "Google Workspace",
-      "microsoft365": "Microsoft 365",
-      "linear": "Linear",
-      "slack": "Slack",
-      "metabase": "Metabase",
-      "signoz": "SigNoz",
-      "cursor": "Cursor",
-      "github": "GitHub",
-      "cloudflare": "Cloudflare",
-      "authentik": "authentik"
-    },
+    "sources": { "csv": "CSV" },
     "errors": {
       "delete": "Échec de la suppression de la source d’accès",
       "configure": "Échec de la configuration de la source"
@@ -2811,7 +2836,9 @@
         "reconnectTitle": "{{provider}} est déconnecté",
         "credentialsTitle": "Les identifiants de {{provider}} sont invalides",
         "reconnectDescription": "Reconnectez cette source pour rétablir l’accès aux organisations.",
-        "credentialsDescription": "Probo ne peut pas accéder aux organisations avec les identifiants actuels. Vérifiez les identifiants et les permissions de cette source."
+        "credentialsDescription": "Probo ne peut pas lire cette source avec les identifiants actuels. Vérifiez les identifiants et les permissions dont ils disposent sur {{provider}}.",
+        "notAuthorizedTitle": "{{provider}} a refusé cette requête",
+        "notAuthorizedDescription": "{{provider}} a accepté les identifiants mais a refusé la requête envoyée par Probo. Vérifiez les permissions dont ils disposent sur {{provider}}, et si votre offre inclut l’API utilisée par Probo."
       }
     }
   },
@@ -3087,6 +3114,7 @@
     "errors": {
       "managedConnect": "Échec de la connexion du fournisseur. Vérifiez vos paramètres et votre code de vérification, puis réessayez.",
       "apiKeyConnect": "Échec de la connexion du fournisseur. Vérifiez votre clé API et réessayez.",
+      "apiKeyFormat": "Cela ne ressemble pas à la clé attendue. Forme attendue : {{example}}",
       "copy": "Copiez le code de vérification manuellement.",
       "generateCode": "Impossible de générer un code de vérification. Vérifiez l’identifiant du site et réessayez."
     },
@@ -3526,8 +3554,8 @@
       "name": "Nom",
       "framework": "Référentiel",
       "state": "État",
-      "validFrom": "Valide à partir de",
-      "validUntil": "Valide jusqu’au",
+      "auditPeriod": "Période d’audit",
+      "validityPeriod": "Période de validité",
       "report": "Rapport"
     },
     "states": {
@@ -3544,7 +3572,11 @@
       "unknownFramework": "Référentiel inconnu",
       "notSet": "Non défini",
       "uploaded": "Téléversé",
-      "notUploaded": "Non téléversé"
+      "notUploaded": "Non téléversé",
+      "period": {
+        "from": "À partir du {{date}}",
+        "until": "Jusqu’au {{date}}"
+      }
     }
   },
   "createAuditDialog": {
@@ -4597,8 +4629,7 @@
     "fields": {
       "period": "Période",
       "matrixSize": "Taille de matrice",
-      "createdAt": "Créé le",
-      "updatedAt": "Mis à jour le"
+      "createdAt": "Créé le"
     },
     "diagrams": "Diagrammes",
     "treatmentPlans": "Risques et plans de traitement",

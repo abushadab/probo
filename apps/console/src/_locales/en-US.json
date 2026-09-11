@@ -212,7 +212,7 @@
     "none": "None"
   },
   "documentList": {
-    "filters": { "allSources": "All sources", "allTypes": "All types", "allClassifications": "All classifications" },
+    "filters": { "searchPlaceholder": "Search documents by title...", "allSources": "All sources", "allTypes": "All types", "allClassifications": "All classifications" },
     "writeModes": { "authored": "Authored", "generated": "Generated" },
     "documentTypes": {
       "other": "Other",
@@ -316,11 +316,12 @@
     "status": { "open": "Open", "in_progress": "In progress", "closed": "Closed", "risk_accepted": "Risk accepted", "mitigated": "Mitigated", "false_positive": "False positive" },
     "priority": { "low": "Low", "medium": "Medium", "high": "High" },
     "messages": { "successTitle": "Success", "deleted": "Finding deleted successfully", "updated": "Finding updated successfully" },
-    "errors": { "title": "Error", "delete": "Failed to delete finding", "update": "Failed to update finding" },
+    "errors": { "title": "Error", "delete": "Failed to delete finding", "update": "Failed to update finding", "linkAudit": "Failed to link audit", "unlinkAudit": "Failed to unlink audit" },
     "deleteConfirmation": "This will permanently delete the finding {{referenceId}}. This action cannot be undone.",
     "fields": { "description": "Description", "source": "Source", "owner": "Owner", "status": "Status", "priority": "Priority", "acceptedRisk": "Accepted risk", "dateIdentified": "Date identified", "dueDate": "Due date", "rootCause": "Root cause", "correctiveAction": "Corrective action", "effectivenessCheck": "Effectiveness check" },
     "placeholders": { "description": "Enter description", "source": "Enter source", "rootCause": "Enter root cause", "correctiveAction": "Enter corrective action", "effectivenessCheck": "Enter effectiveness check details" },
-    "actions": { "delete": "Delete", "updating": "Updating...", "update": "Update" }
+    "actions": { "delete": "Delete", "updating": "Updating...", "update": "Update" },
+    "audits": { "title": "Linked audits", "referenceId": "Audit reference", "link": "Link audit", "empty": "No audits linked", "loadMore": "Load more audits", "loading": "Loading..." }
   },
   "findingsPage": {
     "pageTitle": "Findings",
@@ -444,8 +445,14 @@
   "linkedAuditsDialog": {
     "title": "Link audits",
     "searchPlaceholder": "Search audits...",
+    "referenceIdLabel": "Audit reference",
+    "referenceIdDescription": "Enter the reference used for this finding in the audit report.",
+    "referenceIdPlaceholder": "Enter the report reference",
+    "empty": "No audits match your search.",
     "actions": {
+      "back": "Back",
       "close": "Close",
+      "confirmLink": "Link audit",
       "link": "Link",
       "unlink": "Unlink"
     }
@@ -1312,6 +1319,13 @@
     "errors": { "requestFailed": "Request failed", "cannotSignOut": "Cannot sign out" },
     "actions": { "oauthTokens": "OAuth tokens", "help": "Help", "logout": "Logout" }
   },
+  "editAvatar": {
+    "title": "Profile photo",
+    "description": "Upload a public photo.",
+    "messages": { "updated": "Profile photo updated.", "removed": "Profile photo removed." },
+    "errors": { "update": "Failed to update profile photo", "remove": "Failed to remove profile photo", "invalidFile": "Use a JPEG or PNG under 5 MB." },
+    "actions": { "upload": "Upload photo", "replace": "Replace photo", "remove": "Remove photo", "close": "Close", "change": "Change profile photo" }
+  },
   "newOAuthTokenPage": {
     "pageTitle": "New OAuth token",
     "breadcrumb": "New token",
@@ -1676,7 +1690,7 @@
     "actions": { "back": "Back", "create": "Create" }
   },
   "accessReviewSourceRow": {
-    "sources": { "csv": "CSV", "googleWorkspace": "Google Workspace", "microsoft365": "Microsoft 365", "linear": "Linear", "slack": "Slack", "metabase": "Metabase", "signoz": "SigNoz", "cursor": "Cursor", "github": "GitHub", "cloudflare": "Cloudflare", "authentik": "authentik" },
+    "sources": { "csv": "CSV" },
     "errors": { "delete": "Failed to delete access source", "configure": "Failed to configure source" },
     "messages": { "error": "Error", "success": "Success", "organizationUpdated": "Organization updated." },
     "deleteConfirmation": "This will permanently delete \"{{name}}\". This action cannot be undone.",
@@ -1695,7 +1709,9 @@
         "reconnectTitle": "{{provider}} is disconnected",
         "credentialsTitle": "{{provider}} credentials are invalid",
         "reconnectDescription": "Reconnect this source to restore access to organizations.",
-        "credentialsDescription": "Probo cannot access organizations with the current credentials. Check this source's credentials and permissions."
+        "credentialsDescription": "Probo cannot read this source with the current credentials. Check the credentials and the permissions they carry on {{provider}}.",
+        "notAuthorizedTitle": "{{provider}} refused this request",
+        "notAuthorizedDescription": "{{provider}} accepted the credential but refused the request Probo made. Check the permissions this credential has on {{provider}}, and whether your plan includes the API Probo uses."
       }
     }
   },
@@ -1800,7 +1816,7 @@
     "apiKeyDescription": "Enter the API key for {{provider}} to connect it as an access source.",
     "apiKey": "API Key",
     "messages": { "connectionFailed": "Connection failed", "copyFailed": "Copy failed", "copied": "Copied to clipboard" },
-    "errors": { "managedConnect": "Failed to connect provider. Please check your settings and verification code, then try again.", "apiKeyConnect": "Failed to connect provider. Please check your API key and try again.", "copy": "Copy the verification code manually.", "generateCode": "Couldn't generate a verification code. Check the Website ID and try again." },
+    "errors": { "managedConnect": "Failed to connect provider. Please check your settings and verification code, then try again.", "apiKeyConnect": "Failed to connect provider. Please check your API key and try again.", "apiKeyFormat": "This does not look like the expected key. Expected form: {{example}}", "copy": "Copy the verification code manually.", "generateCode": "Couldn't generate a verification code. Check the Website ID and try again." },
     "verificationCode": { "label": "Verification code", "description": "Paste this code into the Probo plugin settings for this website in your Crisp dashboard, then click Connect. It proves you control this website.", "enterWebsiteId": "Enter your Website ID above to get your verification code.", "generating": "Generating code..." },
     "actions": { "copy": "Copy", "retry": "Retry", "connect": "Connect", "connecting": "Connecting..." }
   },
@@ -2104,9 +2120,19 @@
     },
     "dropzoneOverlay": "Drop a PDF to create an audit with a report",
     "actions": { "addAudit": "Add audit", "delete": "Delete" },
-    "columns": { "name": "Name", "framework": "Framework", "state": "State", "validFrom": "Valid From", "validUntil": "Valid Until", "report": "Report" },
+    "columns": { "name": "Name", "framework": "Framework", "state": "State", "auditPeriod": "Audit period", "validityPeriod": "Validity period", "report": "Report" },
     "states": { "to_book": "To book", "audit_booked": "Audit booked", "not_started": "Not Started", "in_progress": "In Progress", "completed": "Completed", "rejected": "Rejected", "outdated": "Outdated" },
-    "row": { "untitled": "Untitled", "unknownFramework": "Unknown Framework", "notSet": "Not set", "uploaded": "Uploaded", "notUploaded": "Not uploaded" }
+    "row": {
+      "untitled": "Untitled",
+      "unknownFramework": "Unknown Framework",
+      "notSet": "Not set",
+      "uploaded": "Uploaded",
+      "notUploaded": "Not uploaded",
+      "period": {
+        "from": "From {{date}}",
+        "until": "Until {{date}}"
+      }
+    }
   },
   "createAuditDialog": {
     "breadcrumb": { "audits": "Audits", "newAudit": "New Audit" },
@@ -2453,7 +2479,7 @@
     "deleteConfirmation": "This will permanently delete this risk analysis and all its diagrams, nodes, processes, and threats. This action cannot be undone.",
     "actions": { "fork": "Fork", "edit": "Edit", "delete": "Delete", "showMore": "Show more" },
     "details": "Details",
-    "fields": { "period": "Period", "matrixSize": "Matrix size", "createdAt": "Created at", "updatedAt": "Updated at" },
+    "fields": { "period": "Period", "matrixSize": "Matrix size", "createdAt": "Created at" },
     "diagrams": "Diagrams",
     "treatmentPlans": "Risks and Treatment Plans",
     "emptyDiagrams": "No diagrams yet. Create a diagram to start defining nodes, processes, and threats.",

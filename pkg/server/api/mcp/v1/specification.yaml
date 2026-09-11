@@ -10,10 +10,10 @@ components:
       format: string
       go.probo.inc/mcpgen/type: go.probo.inc/probo/pkg/mail.Addr
 
-    Duration:
+    TimeSpan:
       type: string
-      description: A duration
-      go.probo.inc/mcpgen/type: time.Duration
+      description: An ISO-8601 duration
+      go.probo.inc/mcpgen/type: go.probo.inc/probo/pkg/timespan.TimeSpan
 
     OrderDirection:
       type: string
@@ -3329,6 +3329,13 @@ components:
         - WINDOWS
       go.probo.inc/mcpgen/type: go.probo.inc/probo/pkg/coredata.DevicePlatform
 
+    DevicePostureVersion:
+      type: string
+      description: Server schema version that produced this posture row (v1, v2, ...).
+      enum:
+        - v1
+      go.probo.inc/mcpgen/type: go.probo.inc/probo/pkg/coredata.DevicePostureVersion
+
     DevicePostureStatus:
       type: string
       description: Posture check verdict. PASS and FAIL are compliance outcomes; UNKNOWN means the agent could not determine a result; NOT_APPLICABLE means the check does not apply on this host or platform (for example no screen-lock tool on a headless Linux host).
@@ -3402,6 +3409,8 @@ components:
         - check_key
         - status
         - value
+        - version
+        - agent_version
         - observed_at
       properties:
         id:
@@ -3419,6 +3428,12 @@ components:
         value:
           $ref: "#/components/schemas/DevicePostureValue"
           description: Observed posture value for this check_key; use value.kind to interpret value.text and value.number.
+        version:
+          $ref: "#/components/schemas/DevicePostureVersion"
+          description: Server schema version that produced this posture row.
+        agent_version:
+          type: string
+          description: Agent version that observed this posture.
         observed_at:
           type: string
           format: date-time
@@ -6928,6 +6943,7 @@ components:
         - id
         - organization_id
         - name
+        - content
         - state
         - priority
         - rank
@@ -6950,13 +6966,9 @@ components:
         name:
           type: string
           description: Task name
-        description:
-          anyOf:
-            - type: string
-              description: Task description
-            - type: "null"
-              description: No description
-          description: Task description
+        content:
+          type: string
+          description: Task content in markdown (converted from stored ProseMirror JSON)
         state:
           $ref: "#/components/schemas/TaskState"
           description: Task state
@@ -6968,7 +6980,7 @@ components:
           description: Task rank within state
         time_estimate:
           anyOf:
-            - $ref: "#/components/schemas/Duration"
+            - $ref: "#/components/schemas/TimeSpan"
             - type: "null"
               description: No time estimate
           description: Time estimate
@@ -7069,11 +7081,11 @@ components:
         name:
           type: string
           description: Task name
-        description:
+        content:
           type: string
-          description: Task description
+          description: Task content in markdown format
         time_estimate:
-          $ref: "#/components/schemas/Duration"
+          $ref: "#/components/schemas/TimeSpan"
           description: Time estimate
         deadline:
           type: string
@@ -7114,9 +7126,9 @@ components:
         name:
           type: string
           description: Task name
-        description:
+        content:
           type: ["string", "null"]
-          description: Task description
+          description: Task content in markdown format
           go.probo.inc/mcpgen/omittable: true
         state:
           anyOf:
@@ -7137,7 +7149,7 @@ components:
           description: Task rank within state
         time_estimate:
           anyOf:
-            - $ref: "#/components/schemas/Duration"
+            - $ref: "#/components/schemas/TimeSpan"
             - type: "null"
               description: No time estimate
           description: Time estimate
@@ -7258,7 +7270,7 @@ components:
         - organization_id
         - task_id
         - owner_id
-        - description
+        - content
         - created_at
         - updated_at
       properties:
@@ -7274,9 +7286,9 @@ components:
         owner_id:
           $ref: "#/components/schemas/GID"
           description: Owner membership profile ID
-        description:
+        content:
           type: string
-          description: Task comment description
+          description: Task comment body in markdown (converted from stored ProseMirror JSON)
         created_at:
           type: string
           format: date-time
@@ -7341,7 +7353,7 @@ components:
       type: object
       required:
         - task_id
-        - description
+        - content
       properties:
         task_id:
           $ref: "#/components/schemas/GID"
@@ -7349,9 +7361,9 @@ components:
         owner_id:
           $ref: "#/components/schemas/GID"
           description: Owner membership profile ID. Defaults to the caller's profile in the task organization when omitted.
-        description:
+        content:
           type: string
-          description: Task comment description
+          description: Task comment content in markdown format
 
     AddTaskCommentOutput:
       type: object
@@ -7372,9 +7384,10 @@ components:
         owner_id:
           $ref: "#/components/schemas/GID"
           description: Owner membership profile ID
-        description:
-          type: string
-          description: Task comment description
+        content:
+          type: ["string", "null"]
+          description: Task comment content in markdown format
+          go.probo.inc/mcpgen/omittable: true
 
     UpdateTaskCommentOutput:
       type: object
@@ -10043,10 +10056,14 @@ components:
         - CONNECTED
         - DISCONNECTED
         - RECONNECT_REQUIRED
+        - NOT_AUTHORIZED
       description: >-
-        Whether the connector credential is usable right now. DISCONNECTED
-        covers every reason it did not work, because the underlying failure
-        wraps provider-controlled text and stays server-side.
+        Whether the connector credential is usable right now. NOT_AUTHORIZED
+        means the provider accepted the credential and refused the operation,
+        which the customer fixes on their plan or their roles rather than by
+        supplying another credential. DISCONNECTED covers every other reason it
+        did not work, because the underlying failure wraps provider-controlled
+        text and stays server-side.
 
     Connector:
       type: object
@@ -10120,10 +10137,53 @@ components:
         setup:
           $ref: "#/components/schemas/AWSConnectorSetup"
 
+    GCPConnectorSetup:
+      type: object
+      required:
+        - issuer
+        - audience
+        - subject
+        - suggested_service_account_name
+        - terraform_snippet
+      properties:
+        issuer:
+          type: string
+          description: Organization issuer URL
+        audience:
+          type: string
+          description: Token audience template
+        subject:
+          type: string
+          description: Token subject
+        suggested_service_account_name:
+          type: string
+          description: Default service account name
+        terraform_snippet:
+          type: string
+          description: Terraform module block with issuer, subject and service account name filled
+
+    GCPConnectorSetupMCPInput:
+      type: object
+      required:
+        - organization_id
+      properties:
+        organization_id:
+          $ref: "#/components/schemas/GID"
+          description: Organization ID
+
+    GCPConnectorSetupMCPOutput:
+      type: object
+      required:
+        - setup
+      properties:
+        setup:
+          $ref: "#/components/schemas/GCPConnectorSetup"
+
     WorkloadIdentityConnectorProvider:
       type: string
       enum:
         - AWS
+        - GCP
       go.probo.inc/mcpgen/type: go.probo.inc/probo/pkg/coredata.ConnectorProvider
       description: Connector provider that supports workload identity
 
@@ -10132,17 +10192,40 @@ components:
       required:
         - organization_id
         - provider
-        - aws_role_arn
+      oneOf:
+        - title: AWS
+          properties:
+            provider:
+              type: string
+              enum:
+                - AWS
+          required:
+            - aws_role_arn
+        - title: GCP
+          properties:
+            provider:
+              type: string
+              enum:
+                - GCP
+          required:
+            - gcp_workload_identity_provider
+            - gcp_service_account_email
       properties:
         organization_id:
           $ref: "#/components/schemas/GID"
           description: Organization ID
         provider:
           $ref: "#/components/schemas/WorkloadIdentityConnectorProvider"
-          description: Connector provider (AWS)
+          description: Connector provider (AWS or GCP)
         aws_role_arn:
           type: string
-          description: IAM role ARN, including partition, account, and role name
+          description: IAM role ARN, including partition, account, and role name. Required when provider is AWS.
+        gcp_workload_identity_provider:
+          type: string
+          description: Workload identity provider resource, including the S3NS IAM host when applicable. Required when provider is GCP.
+        gcp_service_account_email:
+          type: string
+          description: Service account email to impersonate, including the universe-specific suffix. Required when provider is GCP.
 
     CreateWorkloadIdentityConnectorMCPOutput:
       type: object
@@ -12848,7 +12931,7 @@ components:
           properties:
             exclude_kind:
               $ref: "#/components/schemas/CookieCategoryKind"
-              description: Exclude categories of this kind. Defaults to UNCATEGORISED when omitted.
+              description: Exclude categories of this kind. UNCATEGORISED is excluded when no filter object is given; pass an empty filter object to exclude nothing.
 
     ListCookieCategoriesOutput:
       type: object
@@ -17741,9 +17824,21 @@ tools:
       $ref: "#/components/schemas/AWSConnectorSetupMCPInput"
     outputSchema:
       $ref: "#/components/schemas/AWSConnectorSetupMCPOutput"
+  - name: gcpConnectorSetup
+    title: GCP Connector Setup
+    description: Return issuer, subject, audience template and deploy artifacts for connecting a GCP project
+    hints:
+      readonly: true
+      destructive: false
+      idempotent: true
+      openWorld: false
+    inputSchema:
+      $ref: "#/components/schemas/GCPConnectorSetupMCPInput"
+    outputSchema:
+      $ref: "#/components/schemas/GCPConnectorSetupMCPOutput"
   - name: createWorkloadIdentityConnector
     title: Create Workload Identity Connector
-    description: Create a workload-identity connector (AWS) and report whether the audit role can be assumed
+    description: Create a workload-identity connector (AWS or GCP) and report whether the audit identity can be assumed
     hints:
       readonly: false
       destructive: false
