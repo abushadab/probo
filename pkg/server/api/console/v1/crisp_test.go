@@ -217,22 +217,60 @@ func TestResolveAPIKeyConnectorCredential(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	// Sentry declares no key shape, so it is what exercises the pass-through
+	// branch: anything non-empty is the customer's to get wrong. Giving Sentry
+	// a shape one day fails these two, which is where to look.
 	t.Run("non-managed requires a key", func(t *testing.T) {
 		t.Parallel()
 
-		_, errNil := configured.resolveAPIKeyConnectorCredential(coredata.ConnectorProviderTally, nil)
+		_, errNil := configured.resolveAPIKeyConnectorCredential(coredata.ConnectorProviderSentry, nil)
 		require.EqualError(t, errNil, "apiKey is required")
 
-		_, errEmpty := configured.resolveAPIKeyConnectorCredential(coredata.ConnectorProviderTally, &empty)
+		_, errEmpty := configured.resolveAPIKeyConnectorCredential(coredata.ConnectorProviderSentry, &empty)
 		require.EqualError(t, errEmpty, "apiKey is required")
 	})
 
 	t.Run("non-managed returns the client key", func(t *testing.T) {
 		t.Parallel()
 
-		key, err := configured.resolveAPIKeyConnectorCredential(coredata.ConnectorProviderTally, &clientKey)
+		key, err := configured.resolveAPIKeyConnectorCredential(coredata.ConnectorProviderSentry, &clientKey)
 		require.NoError(t, err)
 		assert.Equal(t, "customer-key", key)
+	})
+
+	// A key is copied out of a provider's UI, so it arrives with whatever the
+	// clipboard picked up. The trim is what catches that, and only the trim:
+	// a shape pattern cannot, because [^:] matches a newline and Go's $ is
+	// end-of-text, so "pk-lf-a:sk-lf-b\n" satisfies Langfuse's own pattern.
+	t.Run("surrounding whitespace is trimmed off the key", func(t *testing.T) {
+		t.Parallel()
+
+		pasted := " pk-lf-1111:sk-lf-2222\n"
+
+		key, err := configured.resolveAPIKeyConnectorCredential(coredata.ConnectorProviderLangfuse, &pasted)
+		require.NoError(t, err)
+		assert.Equal(t, "pk-lf-1111:sk-lf-2222", key)
+	})
+
+	t.Run("a key of only whitespace is no key", func(t *testing.T) {
+		t.Parallel()
+
+		blank := "   "
+
+		_, err := configured.resolveAPIKeyConnectorCredential(coredata.ConnectorProviderLangfuse, &blank)
+		require.EqualError(t, err, "apiKey is required")
+	})
+
+	// The trim runs before the shape check, which is what lets a pasted key
+	// with a trailing newline reach the provider at all.
+	t.Run("a key of the wrong shape is refused", func(t *testing.T) {
+		t.Parallel()
+
+		half := " pk-lf-1111\n"
+
+		_, err := configured.resolveAPIKeyConnectorCredential(coredata.ConnectorProviderLangfuse, &half)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "pk-lf-…:sk-lf-…")
 	})
 }
 

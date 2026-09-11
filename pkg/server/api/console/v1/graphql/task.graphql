@@ -44,11 +44,11 @@ input TaskOrder
 type Task implements Node {
     id: ID!
     name: String!
-    description: String
+    content: String!
     state: TaskState!
     priority: TaskPriority!
     rank: Int!
-    timeEstimate: Duration
+    timeEstimate: TimeSpan
     deadline: Datetime
     assignedTo: Profile @goField(forceResolver: true)
 
@@ -101,10 +101,10 @@ input CreateTaskInput {
     organizationId: ID!
     measureId: ID
     name: String!
-    description: String
+    content: String
     state: TaskState
     priority: TaskPriority!
-    timeEstimate: Duration
+    timeEstimate: TimeSpan
     assignedToId: ID
     deadline: Datetime
 }
@@ -112,11 +112,11 @@ input CreateTaskInput {
 input UpdateTaskInput {
     taskId: ID!
     name: String
-    description: String @goField(omittable: true)
+    content: String @goField(omittable: true)
     state: TaskState
     priority: TaskPriority
     rank: Int
-    timeEstimate: Duration @goField(omittable: true)
+    timeEstimate: TimeSpan @goField(omittable: true)
     deadline: Datetime @goField(omittable: true)
     assignedToId: ID @goField(omittable: true)
     measureId: ID @goField(omittable: true)

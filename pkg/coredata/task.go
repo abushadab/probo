@@ -33,24 +33,25 @@ import (
 	"go.probo.inc/probo/pkg/gid"
 	"go.probo.inc/probo/pkg/iam/policy"
 	"go.probo.inc/probo/pkg/page"
+	"go.probo.inc/probo/pkg/timespan"
 )
 
 type (
 	Task struct {
-		ID             gid.GID        `db:"id"`
-		OrganizationID gid.GID        `db:"organization_id"`
-		MeasureID      *gid.GID       `db:"measure_id"`
-		Name           string         `db:"name"`
-		Description    *string        `db:"description"`
-		State          TaskState      `db:"state"`
-		Priority       TaskPriority   `db:"priority"`
-		ReferenceID    string         `db:"reference_id"`
-		TimeEstimate   *time.Duration `db:"time_estimate"`
-		AssignedToID   *gid.GID       `db:"assigned_to_profile_id"`
-		Deadline       *time.Time     `db:"deadline"`
-		Rank           int            `db:"rank"`
-		CreatedAt      time.Time      `db:"created_at"`
-		UpdatedAt      time.Time      `db:"updated_at"`
+		ID             gid.GID            `db:"id"`
+		OrganizationID gid.GID            `db:"organization_id"`
+		MeasureID      *gid.GID           `db:"measure_id"`
+		Name           string             `db:"name"`
+		Content        string             `db:"content"`
+		State          TaskState          `db:"state"`
+		Priority       TaskPriority       `db:"priority"`
+		ReferenceID    string             `db:"reference_id"`
+		TimeEstimate   *timespan.TimeSpan `db:"time_estimate"`
+		AssignedToID   *gid.GID           `db:"assigned_to_profile_id"`
+		Deadline       *time.Time         `db:"deadline"`
+		Rank           int                `db:"rank"`
+		CreatedAt      time.Time          `db:"created_at"`
+		UpdatedAt      time.Time          `db:"updated_at"`
 
 		// ordering only
 		PriorityRank int `db:"priority_rank"`
@@ -121,7 +122,7 @@ SELECT
 	organization_id,
     measure_id,
     name,
-    description,
+    content,
     state,
     priority,
     reference_id,
@@ -176,7 +177,7 @@ SELECT
     organization_id,
     measure_id,
     name,
-    description,
+    content,
     state,
     priority,
     reference_id,
@@ -236,7 +237,7 @@ INSERT INTO
 		organization_id,
         measure_id,
         name,
-        description,
+        content,
         reference_id,
         state,
         priority,
@@ -253,7 +254,7 @@ VALUES (
 	@organization_id,
     @measure_id,
     @name,
-    @description,
+    @content,
     @reference_id,
     @state,
     @priority,
@@ -273,7 +274,7 @@ RETURNING rank, priority_rank;
 		"organization_id":        t.OrganizationID,
 		"measure_id":             t.MeasureID,
 		"name":                   t.Name,
-		"description":            t.Description,
+		"content":                t.Content,
 		"reference_id":           t.ReferenceID,
 		"state":                  t.State,
 		"priority":               t.Priority,
@@ -316,7 +317,7 @@ INSERT INTO
 		organization_id,
         measure_id,
         name,
-        description,
+        content,
         reference_id,
         state,
         priority,
@@ -333,7 +334,7 @@ VALUES (
 	@organization_id,
     @measure_id,
     @name,
-    @description,
+    @content,
     @reference_id,
     @state,
     @priority,
@@ -346,7 +347,7 @@ VALUES (
 )
 ON CONFLICT (measure_id, reference_id) DO UPDATE SET
     name = @name,
-    description = @description,
+    content = @content,
     updated_at = @updated_at,
     deadline = @deadline
 RETURNING
@@ -354,7 +355,7 @@ RETURNING
     organization_id,
     measure_id,
     name,
-    description,
+    content,
     reference_id,
     state,
     priority,
@@ -373,7 +374,7 @@ RETURNING
 		"organization_id":        t.OrganizationID,
 		"measure_id":             t.MeasureID,
 		"name":                   t.Name,
-		"description":            t.Description,
+		"content":                t.Content,
 		"reference_id":           t.ReferenceID,
 		"state":                  t.State,
 		"priority":               t.Priority,
@@ -445,7 +446,7 @@ func (t *Tasks) LoadByOrganizationID(
 		measure_id,
 		organization_id,
 		name,
-		description,
+		content,
 		state,
 		priority,
 		reference_id,
@@ -530,7 +531,7 @@ SELECT
     measure_id,
 	organization_id,
     name,
-    description,
+    content,
     state,
     priority,
     reference_id,
@@ -578,7 +579,7 @@ func (t *Task) Update(
 UPDATE tasks
 SET
   name = @name,
-  description = @description,
+  content = @content,
   state = @state,
   priority = @priority,
   rank = @rank,
@@ -595,7 +596,7 @@ WHERE %s
 	args := pgx.NamedArgs{
 		"task_id":                t.ID,
 		"name":                   t.Name,
-		"description":            t.Description,
+		"content":                t.Content,
 		"state":                  t.State,
 		"priority":               t.Priority,
 		"rank":                   t.Rank,
